@@ -1,0 +1,42 @@
+[project]
+name = "papertrail"
+version = "0.1.0"
+description = "An assistant whose memory you can see through."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Abhishek Yadav" }]
+dependencies = ["fastapi", "uvicorn[standard]", "httpx"]
+
+[project.scripts]
+papertrail-serve = "papertrail.app:main"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+    "mypy",
+    "httpx>=0.28.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/papertrail"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "C4", "UP", "SIM"]
+
+[tool.mypy]
+files = ["src"]
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q -m 'not live'"
+markers = ["live: calls the real model; run with LIVE=1 and -m live"]
