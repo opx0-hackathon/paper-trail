@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paper Trail — an assistant whose memory you can see through</title>
+<meta name="description" content="Every answer is stamped with the exact memories it was handed. Pull one off and the answer changes.">
+<style>
+:root {
+  --paper: #F5F3EC;
+  --paper-line: #EAE7DD;
+  --card: #FFFFFF;
+  --ink: #111318;
+  --muted: #676C76;
+  --line: #E2DFD6;
+  --cobalt: #234C92;
+  --cobalt-deep: #16305E;
+  --accent: #234C92;
+  --accent-soft: #EAF0FB;
+  --coral: #F15A3A;
+  --coral-soft: #FDEBE5;
+  --yellow: #F2E600;
+  --green: #1E7A55;
+  --green-soft: #E4F3EC;
+  --shadow: 0 1px 2px rgba(17, 19, 24, .06), 0 12px 32px rgba(22, 48, 94, .08);
+  --focus: #234C92;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0F1116;
+    --paper-line: #14171E;
+    --card: #171B22;
+    --ink: #ECEEF2;
+    --muted: #99A0AC;
+    --line: #262B35;
+    --accent: #9CB8F0;
+    --accent-soft: #1B2434;
+    --coral: #FF7A5C;
+    --coral-soft: #34211C;
+    --green: #58C79A;
+    --green-soft: #16271F;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 16px 40px rgba(0, 0, 0, .35);
+    --focus: #9CB8F0;
+  }
+}
+
+* { box-sizing: border-box; margin: 0; }
+
+body {
+  background:
+    repeating-linear-gradient(0deg, var(--paper), var(--paper) 31px, var(--paper-line) 32px);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  padding: 0 16px 72px;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
+.skip { position: absolute; left: -9999px; }
+.skip:focus {
+  left: 16px; top: 12px; z-index: 10; background: var(--card);
+  padding: 8px 12px; border-radius: 8px; box-shadow: var(--shadow);
+}
+
+header {
+  max-width: 1180px; margin: 0 auto;
+  padding: 28px 2px 18px;
+  display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+}
+
+.mark {
+  font-size: 20px; font-weight: 800; letter-spacing: .22em;
+  text-transform: uppercase; font-stretch: 87.5%;
+}
+.mark em { font-style: normal; color: var(--coral); }
+
+.tagline { color: var(--muted); font-size: 13px; letter-spacing: .04em; }
+
+.live {
+  margin-left: auto; font-size: 11px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--muted);
+  display: flex; align-items: center; gap: 7px;
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+.live[data-state="cached"] .dot { background: var(--yellow); }
+
+main {
+  max-width: 1180px; margin: 0 auto;
+  display: grid; grid-template-columns: minmax(0, 1fr) 356px;
+  gap: 22px; align-items: start;
+}
+.column { display: grid; gap: 22px; min-width: 0; }
+
+section h2 {
+  font-size: 12px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--muted); padding-bottom: 8px; margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 8px;
+}
+.count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--card); background: var(--coral);
+  border-radius: 20px; padding: 1px 8px; letter-spacing: .06em;
+}
+h2 .spacer { margin-left: auto; }
+
+/* --- the explainer card ------------------------------------------------- */
+
+.thesis {
+  background: linear-gradient(135deg, var(--cobalt), var(--cobalt-deep) 72%);
+  color: #fff; border-radius: 20px; padding: 24px 26px;
+  box-shadow: var(--shadow); position: relative; overflow: hidden;
+}
+.thesis::after {
+  content: ""; position: absolute; inset: 10px;
+  border: 1px solid rgba(255, 255, 255, .18); border-radius: 14px; pointer-events: none;
+}
+.thesis .kicker {
+  font-size: 10px; letter-spacing: .32em; text-transform: uppercase; opacity: .78;
+}
+.thesis p {
+  margin-top: 10px; font-size: 16.5px; line-height: 1.4; max-width: 46ch;
+  font-weight: 500;
+}
+.thesis .fine { margin-top: 12px; font-size: 12.5px; opacity: .82; font-weight: 400; max-width: 52ch; }
+
+/* --- conversation ------------------------------------------------------- */
+
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  padding: 16px 18px; box-shadow: var(--shadow);
+}
+.card + .card { margin-top: 12px; }
+
+.turn { animation: arrive 200ms ease-out; }
+@keyframes arrive {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.question {
+  font-size: 16px; font-weight: 650; display: flex; gap: 10px; align-items: baseline;
+}
+.question .caret { color: var(--coral); font-weight: 800; }
+
+.answer { margin-top: 12px; font-size: 15.5px; white-space: pre-wrap; }
+
+.regen {
+  margin-top: 2px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--coral); font-weight: 700;
+}
+
+.handed {
+  margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line);
+}
+.handed .label {
+  font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--muted); font-weight: 800;
+}
+
+.stamps { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+
+.stamp {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  background: var(--accent-soft); color: var(--accent);
+  border: 1px solid var(--line); border-radius: 7px;
+  padding: 3px 4px 3px 9px; white-space: nowrap;
+}
+.stamp .flag {
+  font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+  font-weight: 700; opacity: .9;
+}
+.stamp.proof { border-color: var(--accent); background: var(--green-soft); color: var(--green); }
+.stamp.refused {
+  background: var(--coral-soft); color: var(--coral); border-color: var(--coral);
+  padding-right: 9px;
+}
+.stamp .pull {
+  font: inherit; font-size: 13px; line-height: 1;
+  background: transparent; border: 0; color: inherit;
+  cursor: pointer; padding: 2px 5px; border-radius: 5px; opacity: .65;
+}
+.stamp .pull:hover { opacity: 1; background: rgba(241, 90, 58, .16); color: var(--coral); }
+
+.stamp.gone {
+  background: transparent; color: var(--muted);
+  border-color: var(--line); border-style: dashed;
+  text-decoration: line-through; padding-right: 9px;
+}
+.stamp.gone .flag { text-decoration: none; color: var(--coral); }
+
+.nothing { margin-top: 9px; font-size: 13px; color: var(--muted); }
+
+/* --- the approval card, when the holder is asked first ------------------ */
+
+.pending { border-left: 5px solid var(--coral); }
+.pending .why {
+  font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--coral); font-weight: 800;
+}
+.pending .grant { margin-top: 12px; display: grid; gap: 2px; }
+
+.tick {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 7px 8px; border-radius: 9px; cursor: pointer;
+}
+.tick:hover { background: var(--accent-soft); }
+.tick input { margin-top: 3px; accent-color: var(--accent); width: 15px; height: 15px; }
+.tick .what { min-width: 0; }
+.tick .mem { font-size: 14px; }
+.tick .why-line {
+  display: block; font-size: 11.5px; color: var(--muted); margin-top: 1px;
+}
+.tick .why-line b { color: var(--accent); font-weight: 600; }
+
+.apart {
+  margin-top: 12px; padding: 12px 13px; border-radius: 11px;
+  background: var(--coral-soft); border: 1px solid var(--coral);
+}
+.apart .head {
+  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--coral); font-weight: 800;
+}
+.apart .rule { font-size: 12px; color: var(--ink); margin-top: 6px; opacity: .85; }
+.apart .tick:hover { background: rgba(241, 90, 58, .1); }
+.apart .tick input { accent-color: var(--coral); }
+.apart .tick .why-line b { color: var(--coral); }
+
+/* --- what the assistant would like to keep ------------------------------ */
+
+.keep {
+  margin-top: 14px; padding: 13px 14px; border-radius: 11px;
+  background: var(--green-soft); border: 1px solid var(--green);
+}
+.keep .head {
+  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--green); font-weight: 800;
+}
+.keep .fact { font-size: 14.5px; margin-top: 7px; }
+.keep .as {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--muted); display: block; margin-top: 4px;
+}
+.keep .row { display: flex; gap: 8px; margin-top: 11px; flex-wrap: wrap; }
+.keep button { padding: 7px 13px; font-size: 13.5px; }
+.keep .yes { background: var(--green); color: #fff; }
+.keep .kept {
+  font-size: 12.5px; color: var(--green); font-weight: 650; margin-top: 10px;
+}
+
+.mode {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 12.5px; color: var(--muted); user-select: none;
+}
+.mode input { accent-color: var(--coral); width: 15px; height: 15px; }
+.mode b { color: var(--ink); font-weight: 650; }
+
+.starters { display: flex; flex-wrap: wrap; gap: 8px; }
+.starter {
+  font: inherit; font-size: 13.5px; background: var(--card); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 20px; padding: 7px 14px;
+  cursor: pointer; box-shadow: var(--shadow);
+}
+.starter:hover { border-color: var(--accent); color: var(--accent); }
+
+form.ask { display: flex; gap: 8px; margin-top: 12px; }
+input[type="text"] {
+  flex: 1; font: inherit; font-size: 15px; color: var(--ink);
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px 14px; min-width: 0;
+}
+
+button {
+  font: inherit; font-size: 14px; font-weight: 650;
+  border: 1px solid transparent; border-radius: 10px; padding: 10px 16px;
+  cursor: pointer; transition: transform 120ms ease, background-color 120ms ease;
+}
+button:active { transform: translateY(1px); }
+button[disabled] { opacity: .5; cursor: default; }
+.primary { background: var(--ink); color: var(--paper); }
+.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+
+.thinking { color: var(--muted); font-size: 14px; display: flex; gap: 9px; align-items: center; }
+.thinking i {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--coral);
+  animation: pulse 900ms ease-in-out infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: .25 } 50% { opacity: 1 } }
+
+.notice {
+  border-left: 5px solid var(--coral); font-size: 14px;
+}
+
+/* --- memory file -------------------------------------------------------- */
+
+.memory {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 9px 0; border-bottom: 1px solid var(--line);
+}
+.memory:last-child { border-bottom: 0; }
+.memory .note { flex: 1; min-width: 0; }
+.memory .value { display: block; font-size: 14px; }
+.memory .about {
+  display: block; font-size: 11.5px; color: var(--muted); margin-top: 3px;
+}
+.memory .path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px; color: var(--muted); opacity: .8;
+}
+.memory .tag {
+  font-size: 9px; letter-spacing: .14em; text-transform: uppercase; font-weight: 800;
+  border-radius: 20px; padding: 2px 7px; white-space: nowrap;
+}
+.tag.proof { background: var(--green-soft); color: var(--green); }
+.tag.special { background: var(--coral-soft); color: var(--coral); }
+
+.memory.gone .value { color: var(--muted); text-decoration: line-through; }
+.memory.gone { opacity: .72; }
+
+.revoked-stamp {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9.5px; font-weight: 800; letter-spacing: .18em;
+  color: var(--coral); border: 1.5px solid var(--coral); border-radius: 4px;
+  padding: 1px 6px; transform: rotate(-6deg); white-space: nowrap;
+}
+
+/* --- ledger ------------------------------------------------------------- */
+
+.ledger { max-height: 340px; overflow-y: auto; }
+.line {
+  display: grid; grid-template-columns: 58px 1fr; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.line:last-child { border-bottom: 0; }
+.line .when {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--muted);
+}
+.line .what { min-width: 0; }
+.line .act {
+  font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 800;
+  margin-right: 7px;
+}
+.act.read { color: var(--accent); }
+.act.sensitive_read { color: var(--coral); }
+.act.refused { color: var(--coral); }
+.act.revoked { color: var(--coral); }
+.act.asked { color: var(--muted); }
+.line .detail { color: var(--muted); display: block; font-size: 11.5px; }
+
+footer {
+  max-width: 1180px; margin: 26px auto 0; color: var(--muted); font-size: 12.5px;
+  display: flex; gap: 16px; flex-wrap: wrap;
+}
+footer a { color: var(--accent); }
+
+@media (max-width: 900px) {
+  main { grid-template-columns: minmax(0, 1fr); }
+  .ledger { max-height: 260px; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#ask">Skip to the question box</a>
+
+<header>
+  <div class="mark">Paper<em>·</em>Trail</div>
+  <div class="tagline">an assistant whose memory you can see through</div>
+  <div class="live" id="live" data-state="cached">
+    <span class="dot"></span><span id="live-text">starting</span>
+  </div>
+</header>
+
+<main>
+  <div class="column">
+    <div class="thesis">
+      <div class="kicker">what you are looking at</div>
+      <p>Every answer below is stamped with the exact memories the model was handed.</p>
+      <div class="fine">
+        Not what it says it used — what it was given. The stamps are written by the code
+        that hands the value over, in the same transaction as the read. Pull one off and
+        the question is answered again without it. Nothing is read without a receipt, and
+        nothing is remembered without being asked.
+      </div>
+    </div>
+
+    <section id="ask">
+      <h2>Ask</h2>
+      <div class="starters" id="starters"></div>
+      <label class="mode" for="askfirst" style="margin-top:12px">
+        <input type="checkbox" id="askfirst">
+        <span><b>Ask me first.</b> Show me what it wants before it reads anything.</span>
+      </label>
+      <form class="ask" id="form" autocomplete="off">
+        <input type="text" id="q" name="q" placeholder="Ask Arjun's assistant something…"
+               aria-label="Your question" maxlength="400">
+        <button class="primary" type="submit" id="send">Ask</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Conversation <span class="spacer"></span>
+        <button class="ghost" id="reset" type="button">Reset memory file</button>
+      </h2>
+      <div id="thread" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <div class="column">
+    <section>
+      <h2>Arjun's memory file <span class="count" id="live-count">0</span></h2>
+      <div class="card" id="memories"></div>
+    </section>
+
+    <section>
+      <h2>Ledger <span class="count" id="ledger-count">0</span></h2>
+      <div class="card ledger" id="ledger"></div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <span>Paper Trail — a governed memory file</span>
+  <a href="https://github.com/opx0/paper-trail">Source, MIT</a>
+  <span id="model-line"></span>
+</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const thread = $("thread");
+let busy = false;
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => (
+  { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+));
+
+const clock = (t) => new Date(t * 1000).toLocaleTimeString([], {
+  hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+});
+
+async function post(url, body) {
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+  return r.json();
+}
+
+function paintState(s) {
+  if (!s || !s.memories) return;
+
+  const liveCount = s.memories.filter((m) => !m.revoked).length;
+  $("live-count").textContent = liveCount;
+  $("ledger-count").textContent = s.receipts.length;
+
+  $("memories").innerHTML = s.memories.map((m) => `
+    <div class="memory ${m.revoked ? "gone" : ""}">
+      <div class="note">
+        <span class="value">${esc(m.value)}</span>
+        <span class="about">${esc(m.note)} <span class="path">${esc(m.path)}</span></span>
+      </div>
+      ${m.revoked ? '<span class="revoked-stamp">revoked</span>' : ""}
+      ${!m.revoked && m.attested ? '<span class="tag proof" title="the model is told this is confirmed, never the value">proof only</span>' : ""}
+      ${!m.revoked && m.sensitive ? '<span class="tag special" title="needs a request of its own; never rides along">special</span>' : ""}
+    </div>`).join("");
+
+  $("ledger").innerHTML = s.receipts.length ? s.receipts.map((r) => `
+    <div class="line">
+      <span class="when">${clock(r.created_at)}</span>
+      <span class="what">
+        <span class="act ${esc(r.action)}">${esc(r.action.replace("_", " "))}</span>
+        <span class="mono">${esc(r.path)}</span>
+        <span class="detail">${esc(r.purpose || r.detail)}</span>
+      </span>
+    </div>`).join("") : '<div class="nothing">Nothing read yet.</div>';
+
+  const live = $("live");
+  live.dataset.state = s.live ? "live" : "cached";
+  $("live-text").textContent = s.live ? "live model" : "cached answers";
+  $("model-line").textContent = s.model ? "model: " + s.model : "";
+
+  if (!$("starters").children.length) {
+    $("starters").innerHTML = s.starters.map((t) =>
+      `<button class="starter" type="button">${esc(t)}</button>`).join("");
+    for (const b of $("starters").children) {
+      b.addEventListener("click", () => ask(b.textContent.trim()));
+    }
+  }
+}
+
+function stampHTML(st) {
+  if (st.kind === "refused") {
+    return `<span class="stamp refused" title="${esc(st.reason)}">
+      ${esc(st.path)} <span class="flag">refused</span></span>`;
+  }
+  const flag = st.kind === "proof" ? '<span class="flag">proof only</span>' : "";
+  const title = st.purpose ? `asked for: ${st.purpose}` : st.note;
+  return `<span class="stamp ${esc(st.kind)}" title="${esc(title)}">
+    ${esc(st.path)} ${flag}
+    <button class="pull" type="button" data-path="${esc(st.path)}"
+            title="Revoke this memory and answer again without it"
+            aria-label="Revoke ${esc(st.path)}">&times;</button></span>`;
+}
+
+function keepHTML(s) {
+  return `
+    <div class="keep" data-path="${esc(s.path)}">
+      <div class="head">the assistant would like to remember this</div>
+      <div class="fact">${esc(s.value)}
+        <span class="as">${esc(s.path)} — ${esc(s.note)}</span>
+      </div>
+      <div class="row">
+        <button class="yes" type="button">Keep it</button>
+        <button class="ghost no" type="button">Don't</button>
+      </div>
+    </div>`;
+}
+
+function wireKeep(node) {
+  const box = node.querySelector(".keep");
+  if (!box) return;
+  const s = pendingKeep[box.dataset.path];
+  const done = (word) => {
+    box.innerHTML = `<div class="head">the assistant would like to remember this</div>
+      <div class="fact">${esc(s.value)}<span class="as">${esc(s.path)}</span></div>
+      <div class="kept">${word}</div>`;
+  };
+  box.querySelector(".yes").addEventListener("click", async () => {
+    paintState(await post("/api/remember", s));
+    done("Kept. It is in the memory file, and on the ledger.");
+  });
+  box.querySelector(".no").addEventListener("click", async () => {
+    paintState(await post("/api/decline", s));
+    done("Not kept — and the ledger says it was asked for.");
+  });
+}
+
+const pendingKeep = {};
+
+function turnHTML(question, result, regenerated) {
+  const stamps = result.stamps || [];
+  const gone = regenerated
+    ? `<span class="stamp gone" title="revoked, and not offered to the model again">
+        ${esc(regenerated)} <span class="flag">revoked</span></span>`
+    : "";
+  const handed = (stamps.length || gone)
+    ? `<div class="stamps">${gone}${stamps.map(stampHTML).join("")}</div>`
+    : '<div class="nothing">Nothing was handed over. This answer used no memories.</div>';
+  return `
+    <div class="card turn" data-question="${esc(question)}">
+      <div class="question"><span class="caret">&rsaquo;</span>${esc(question)}</div>
+      ${regenerated ? `<div class="regen">answered again without ${esc(regenerated)}</div>` : ""}
+      <div class="answer">${esc(result.answer)}</div>
+      <div class="handed">
+        <div class="label">handed to the model${result.cached ? " · cached answer" : ""}</div>
+        ${handed}
+      </div>
+      ${result.suggestion ? keepHTML(result.suggestion) : ""}
+    </div>`;
+}
+
+function proposalHTML(p) {
+  const row = (a, cls) => `
+    <label class="tick">
+      <input type="checkbox" data-path="${esc(a.path)}" ${cls === "special" ? "" : "checked"}>
+      <span class="what">
+        <span class="mem mono">${esc(a.path)}</span>
+        <span class="why-line">${esc(a.note)} — <b>${esc(a.purpose || "no reason given")}</b></span>
+      </span>
+    </label>`;
+
+  const special = p.special.length ? `
+    <div class="apart">
+      <div class="head">asked for separately</div>
+      <div class="rule">
+        A special category does not ride along with ordinary preferences. It travels as
+        its own request, or not at all — so this one starts unticked.
+      </div>
+      ${p.special.map((a) => row(a, "special")).join("")}
+    </div>` : "";
+
+  return `
+    <div class="card turn pending" data-question="${esc(p.question)}">
+      <div class="why">the model is asking</div>
+      <div class="question" style="margin-top:4px">
+        <span class="caret">&rsaquo;</span>${esc(p.question)}
+      </div>
+      <div class="grant">${p.ordinary.map((a) => row(a, "ordinary")).join("")}</div>
+      ${special}
+      <div class="row" style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+        <button class="primary go" type="button">Hand over what's ticked</button>
+        <button class="ghost no" type="button">Refuse everything</button>
+      </div>
+    </div>`;
+}
+
+function wireProposal(node, p) {
+  const purposes = {};
+  for (const a of p.ordinary.concat(p.special)) purposes[a.path] = a.purpose;
+  const decide = async (granted) => {
+    const denied = p.ordinary.concat(p.special)
+      .map((a) => a.path).filter((x) => !granted.includes(x));
+    busy = true;
+    $("send").disabled = true;
+    node.innerHTML = '<div class="answer thinking"><i></i>answering from what you allowed…</div>';
+    try {
+      const data = await post("/api/answer",
+        { question: p.question, granted, denied, purposes });
+      paintState(data);
+      if (data.suggestion) pendingKeep[data.suggestion.path] = data.suggestion;
+      node.outerHTML = turnHTML(p.question, data, null);
+      wirePulls(thread.firstElementChild);
+    } catch (e) {
+      node.className = "card turn notice";
+      node.textContent = "That did not go through. Try again in a moment.";
+    } finally {
+      busy = false;
+      $("send").disabled = false;
+    }
+  };
+  node.querySelector(".go").addEventListener("click", () => decide(
+    [...node.querySelectorAll("input[type=checkbox]")]
+      .filter((b) => b.checked).map((b) => b.dataset.path)
+  ));
+  node.querySelector(".no").addEventListener("click", () => decide([]));
+}
+
+function wirePulls(node) {
+  node.querySelectorAll(".pull").forEach((b) => {
+    b.addEventListener("click", () => pull(b.dataset.path, node.dataset.question));
+  });
+  wireKeep(node);
+}
+
+function thinking(question) {
+  const el = document.createElement("div");
+  el.className = "card turn";
+  el.innerHTML = `<div class="question"><span class="caret">&rsaquo;</span>${esc(question)}</div>
+    <div class="answer thinking"><i></i>deciding which memories it needs…</div>`;
+  el.dataset.question = question;
+  thread.prepend(el);
+  return el;
+}
+
+async function ask(question, regenerated) {
+  if (busy || !question) return;
+  busy = true;
+  $("send").disabled = true;
+  const placeholder = thinking(question);
+  try {
+    const mode = $("askfirst").checked ? "ask" : "auto";
+    const data = await post("/api/ask", { question, mode });
+    paintState(data);
+    if (data.notice) {
+      placeholder.className = "card turn notice";
+      placeholder.textContent = data.notice;
+    } else if (data.proposal) {
+      placeholder.outerHTML = proposalHTML(data.proposal);
+      wireProposal(thread.firstElementChild, data.proposal);
+    } else {
+      if (data.suggestion) pendingKeep[data.suggestion.path] = data.suggestion;
+      placeholder.outerHTML = turnHTML(question, data, regenerated);
+      wirePulls(thread.firstElementChild);
+    }
+  } catch (e) {
+    placeholder.className = "card turn notice";
+    placeholder.textContent = "That did not go through. Try again in a moment.";
+  } finally {
+    busy = false;
+    $("send").disabled = false;
+  }
+}
+
+async function pull(path, question) {
+  if (busy) return;
+  paintState(await post("/api/revoke", { path }));
+  if (question) await ask(question, path);
+}
+
+$("form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const q = $("q").value.trim();
+  $("q").value = "";
+  ask(q);
+});
+
+$("reset").addEventListener("click", async () => {
+  paintState(await post("/api/restore", {}));
+  thread.innerHTML = "";
+});
+
+fetch("/api/state").then((r) => r.json()).then(paintState);
+</script>
+</body>
+</html>
