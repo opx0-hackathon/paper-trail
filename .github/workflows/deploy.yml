@@ -26,19 +26,34 @@ jobs:
     needs: wait-for-ci
     runs-on: ubuntu-latest
     steps:
-      - name: ssh + run the deploy script on the vps
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          script_stop: true
-          command_timeout: 15m
-          script: |
-            ~/paper-trail/deploy/deploy.sh
+      - uses: actions/checkout@v4
 
-      - name: smoke test
+      - name: load ssh key + trust the host
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: ship the tree, then build + restart the container
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -e
+          PORT="${PORT:-22}"
+          tar czf - \
+            --exclude='.venv' --exclude='node_modules' --exclude='web/dist' \
+            --exclude='web/tsconfig.tsbuildinfo' --exclude='__pycache__' \
+            --exclude='.mypy_cache' --exclude='.ruff_cache' --exclude='.pytest_cache' \
+            --exclude='.git' --exclude='papertrail.db' --exclude='.env' \
+            . | ssh -i ~/.ssh/deploy -p "$PORT" "$USER@$HOST" \
+              'set -e; cd ~/sa/paper-trail && tar xzf - && bash deploy/deploy.sh'
+
+      - name: smoke test from outside
         run: |
           set -e
           for i in 1 2 3 4 5; do
@@ -48,5 +63,5 @@ jobs:
             [ "$code" = "200" ] && [ "$state" = "200" ] && exit 0
             sleep 5
           done
-          echo "deploy verified but endpoints not returning 200 — check the box"
+          echo "endpoints not 200 after 5 tries"
           exit 1

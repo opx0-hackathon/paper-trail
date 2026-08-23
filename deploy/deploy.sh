@@ -1,16 +1,11 @@
 #!/usr/bin/env bash
-# Redeploy Paper Trail. Pulls, rebuilds the image, restarts the container.
-# Idempotent. Fails loud on any step.
+# Rebuild the image and swap the container. Assumes the tree is already
+# up to date at $ROOT (rsync/tar/scp/git — this script does not care how
+# it got there). Fails loud on any step.
 set -euo pipefail
 
 ROOT="${PAPERTRAIL_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-BRANCH="${PAPERTRAIL_BRANCH:-main}"
-
 cd "$ROOT"
-
-echo "==> pulling $BRANCH"
-git fetch --prune origin
-git reset --hard "origin/$BRANCH"
 
 echo "==> building image"
 docker compose build

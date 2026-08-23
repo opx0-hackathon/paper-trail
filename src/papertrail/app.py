@@ -31,16 +31,11 @@ from papertrail.seed import HOLDER, STARTERS
 from papertrail.store import Store, database_path
 
 COOKIE = "pt_sid"
-# The built React app: env var wins; else repo-relative web/dist; else the
-# vanilla-JS fallback template that ships with the package.
+# The built React app. Env var wins; else repo-relative web/dist.
 _ENV_DIST = os.environ.get("PAPERTRAIL_WEB_DIST")
 _REPO_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
 WEB_DIST = Path(_ENV_DIST) if _ENV_DIST else _REPO_DIST
-TEMPLATE = (
-    WEB_DIST / "index.html"
-    if (WEB_DIST / "index.html").is_file()
-    else Path(__file__).parent / "templates" / "index.html"
-)
+TEMPLATE = WEB_DIST / "index.html"
 
 ASKS_PER_SESSION = 14
 ASKS_PER_MINUTE = 30
