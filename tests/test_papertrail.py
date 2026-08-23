@@ -661,3 +661,33 @@ def test_purge_removes_a_stale_session_and_everything_it_held(store, session):
 def test_purge_leaves_a_live_session_alone(store, session):
     assert store.purge(3600, NOW + 60) == 0
     assert len(store.memories(session)) == len(SEED)
+
+
+def test_migrations_add_missing_columns_to_an_older_database(tmp_path):
+    """Boot-time migration runner catches up a DB from before a new column landed.
+
+    Regression for the 2026-08-24 /api/state outage: the old code path used
+    `CREATE TABLE IF NOT EXISTS` which never ALTERs, so a moved checkout with
+    an older schema kept 500ing until the DB was wiped by hand.
+    """
+    path = tmp_path / "old.db"
+    con = sqlite3.connect(path)
+    con.executescript(
+        "CREATE TABLE sessions (id TEXT PRIMARY KEY, created_at REAL NOT NULL,"
+        " asks INTEGER NOT NULL DEFAULT 0);"
+        "CREATE TABLE memories (session_id TEXT, path TEXT, value TEXT, note TEXT,"
+        " attested INT, sensitive INT, revoked INT, ordinal INT,"
+        " PRIMARY KEY(session_id, path));"
+    )
+    con.commit()
+    con.close()
+
+    Store(path)  # boot triggers the migration runner
+
+    with sqlite3.connect(path) as con:
+        cols = [row[1] for row in con.execute("PRAGMA table_info(memories)")]
+        applied = [row[0] for row in con.execute("SELECT id FROM _migrations ORDER BY id")]
+
+    assert "source" in cols
+    assert "created_at" in cols
+    assert applied == [1, 2]

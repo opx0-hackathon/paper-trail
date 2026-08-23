@@ -20,9 +20,11 @@ docker compose up -d --remove-orphans
 
 echo "==> waiting for health"
 for i in $(seq 1 20); do
-  if curl -fsS http://127.0.0.1:8790/healthz >/dev/null 2>&1; then
-    curl -fsS http://127.0.0.1:8790/healthz && echo
-    curl -fsS -o /dev/null -w "==> /api/state %{http_code}\n" http://127.0.0.1:8790/api/state
+  hz=$(curl -fsS http://127.0.0.1:8790/healthz 2>/dev/null || true)
+  st=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8790/api/state)
+  if [ -n "$hz" ] && [ "$st" = "200" ]; then
+    echo "  /healthz    $hz"
+    echo "  /api/state  $st"
     exit 0
   fi
   sleep 1

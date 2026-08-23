@@ -9,6 +9,11 @@ services:
       - "127.0.0.1:8790:8790"   # loopback only — Caddy on the host proxies here
     volumes:
       - papertrail-data:/data   # SQLite + anything else worth surviving a rebuild
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
 volumes:
   papertrail-data:

@@ -11,6 +11,7 @@ import json
 import os
 import secrets
 import sqlite3
+import time
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
@@ -101,6 +102,34 @@ def database_path() -> Path:
     return Path(os.environ.get(DB_ENV, DEFAULT_DB))
 
 
+MIGRATIONS_DIR = Path(os.environ.get("PAPERTRAIL_MIGRATIONS", "migrations"))
+
+
+def _migrate(con: sqlite3.Connection, dir: Path) -> None:
+    """Run numbered SQL files from ``dir`` once each, in order.
+
+    Idempotent. Column-additive migrations (ALTER TABLE ADD COLUMN) are
+    silently skipped when the column already exists, so a box that ran an
+    older code path still catches up cleanly.
+    """
+    con.execute("CREATE TABLE IF NOT EXISTS _migrations (id INTEGER PRIMARY KEY, applied REAL)")
+    done = {row[0] for row in con.execute("SELECT id FROM _migrations")}
+    if not dir.is_dir():
+        return
+    for path in sorted(dir.glob("[0-9][0-9][0-9]_*.sql")):
+        n = int(path.name[:3])
+        if n in done:
+            continue
+        try:
+            con.executescript(path.read_text())
+        except sqlite3.OperationalError as exc:
+            # ALTER TABLE ADD COLUMN when the column already exists → skip.
+            if "duplicate column name" not in str(exc):
+                raise
+        con.execute("INSERT INTO _migrations(id, applied) VALUES (?, ?)", (n, time.time()))
+        con.commit()
+
+
 class Store:
     def __init__(self, path: Path | str) -> None:
         self.path = Path(path)
@@ -108,6 +137,7 @@ class Store:
             self.path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as con:
             con.executescript(SCHEMA)
+            _migrate(con, MIGRATIONS_DIR)
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:

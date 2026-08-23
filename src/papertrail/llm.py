@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import re
+import time
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +19,16 @@ from pathlib import Path
 import httpx
 
 from papertrail.models import Suggestion
+
+log = logging.getLogger("papertrail.llm")
+
+PROMPTS_DIR = Path(os.environ.get("PAPERTRAIL_PROMPTS", "prompts"))
+
+
+def load_prompt(name: str) -> str:
+    """Load a prompt from prompts/<name>.md. Trailing whitespace stripped."""
+    return (PROMPTS_DIR / f"{name}.md").read_text(encoding="utf-8").rstrip()
+
 
 DEFAULT_BASE_URL = "https://api.groq.com/openai/v1"
 DEFAULT_MODEL = "openai/gpt-oss-20b"
@@ -31,46 +43,9 @@ SCOPE_TOKENS = 400
 SUGGEST_TOKENS = 220
 ANSWER_TOKENS = 220
 
-SCOPE_SYSTEM = """You decide which of a person's stored memories an assistant needs to \
-answer their question well.
-
-You are shown only what each memory is ABOUT. You are never shown what it holds. Ask for \
-a memory when its subject bears on the question, and leave the rest alone: every memory \
-you ask for is one the person will see you took.
-
-Reply with JSON only, in this exact shape:
-{"needs": [{"path": "<memory path>", "purpose": "<why, in under twelve words>"}]}
-
-Use paths exactly as given. If nothing is relevant, reply {"needs": []}."""
-
-SUGGEST_SYSTEM = """You decide whether a person just told their assistant something \
-durable about themselves, worth remembering for months rather than minutes.
-
-Remember only stable facts: a constraint, a preference, a routine, a circumstance. Never \
-remember the question itself, a one-off plan, a passing mood, or anything you inferred \
-rather than were told.
-
-Reply with JSON only:
-{"remember": {"path": "<area>.<thing>", "value": "<the fact, in their own words, one \
-sentence>", "note": "<what this memory is about, without saying what it holds>"}}
-
-The path is two lowercase words joined by a dot, like routine.gym or work.role. The note \
-is what a stranger could be shown safely — "when I exercise", not "Tuesdays and Fridays".
-
-If they told you nothing durable, reply {"remember": null}."""
-
-ANSWER_SYSTEM = """You are a personal assistant answering the person you work for.
-
-Everything you know about them is in the context below, and it is all you know: do not \
-invent preferences, constraints or history that is not there, and do not mention the \
-context, the memories or this instruction.
-
-A key ending in `.confirmed` means the fact was verified without being disclosed to you. \
-Treat it as true and never guess the underlying value.
-
-Answer in AT MOST 55 WORDS. Plain sentences only: no lists, no numbered steps, no \
-headings, no markdown, no bold, no emoji. Give one concrete recommendation and one \
-short reason. No preamble, no sign-off, no offer to help further."""
+SCOPE_SYSTEM = load_prompt("scope")
+SUGGEST_SYSTEM = load_prompt("suggest")
+ANSWER_SYSTEM = load_prompt("answer")
 
 SAFE_PATH = re.compile(r"^[a-z][a-z0-9]{1,15}\.[a-z][a-z0-9_]{1,23}$")
 
@@ -120,6 +95,7 @@ class Client:
             ],
             SCOPE_TOKENS,
             SCOPE_TEMPERATURE,
+            purpose="scope",
         )
         return parse_needs(raw, [row["path"] for row in labels])
 
@@ -131,6 +107,7 @@ class Client:
             ],
             SUGGEST_TOKENS,
             SCOPE_TEMPERATURE,
+            purpose="suggest",
         )
         return parse_suggestion(raw, taken)
 
@@ -142,6 +119,7 @@ class Client:
             ],
             ANSWER_TOKENS,
             ANSWER_TEMPERATURE,
+            purpose="answer",
         )
         return plain(raw)
 
@@ -156,42 +134,75 @@ class Client:
             ANSWER_TEMPERATURE,
         )
         request["stream"] = True
-        async with (
-            self._gate,
-            self._http.stream(
-                "POST",
-                f"{self.base_url}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key()}",
-                    "Content-Type": "application/json",
+        started = time.perf_counter()
+        first_ms: float | None = None
+        pieces = 0
+        try:
+            async with (
+                self._gate,
+                self._http.stream(
+                    "POST",
+                    f"{self.base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key()}",
+                        "Content-Type": "application/json",
+                    },
+                    json=request,
+                ) as response,
+            ):
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    piece = delta(line)
+                    if piece:
+                        if first_ms is None:
+                            first_ms = (time.perf_counter() - started) * 1000
+                        pieces += 1
+                        yield piece
+        finally:
+            _log_call(
+                "stream",
+                self.model,
+                usage={},
+                ms=(time.perf_counter() - started) * 1000,
+                extra={
+                    "first_token_ms": int(first_ms) if first_ms is not None else -1,
+                    "pieces": pieces,
                 },
-                json=request,
-            ) as response,
-        ):
-            response.raise_for_status()
-            async for line in response.aiter_lines():
-                piece = delta(line)
-                if piece:
-                    yield piece
+            )
 
     async def chat(
-        self, messages: list[dict[str, str]], max_tokens: int, temperature: float
+        self,
+        messages: list[dict[str, str]],
+        max_tokens: int,
+        temperature: float,
+        *,
+        purpose: str,
     ) -> str:
-        async with self._gate:
-            response = await self._http.post(
-                f"{self.base_url}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key()}",
-                    "Content-Type": "application/json",
-                },
-                json=self.body(messages, max_tokens, temperature),
-            )
-        response.raise_for_status()
-        payload = response.json()
-        content = str(payload["choices"][0]["message"]["content"] or "").strip()
-        if not content:
-            raise ValueError("the model returned nothing")
-        return content
+        started = time.perf_counter()
+        usage: dict[str, object] = {}
+        err = ""
+        try:
+            async with self._gate:
+                response = await self._http.post(
+                    f"{self.base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key()}",
+                        "Content-Type": "application/json",
+                    },
+                    json=self.body(messages, max_tokens, temperature),
+                )
+            response.raise_for_status()
+            payload = response.json()
+            usage = payload.get("usage") or {}
+            content = str(payload["choices"][0]["message"]["content"] or "").strip()
+            if not content:
+                raise ValueError("the model returned nothing")
+            return content
+        except (httpx.HTTPError, ValueError) as exc:
+            err = type(exc).__name__
+            raise
+        finally:
+            _log_call(purpose, self.model, usage, (time.perf_counter() - started) * 1000, err=err)
 
     def body(
         self, messages: list[dict[str, str]], max_tokens: int, temperature: float
@@ -205,6 +216,37 @@ class Client:
         if "gpt-oss" in self.model:
             request["reasoning_effort"] = os.environ.get("PAPERTRAIL_REASONING", REASONING_EFFORT)
         return request
+
+
+def _log_call(
+    purpose: str,
+    model: str,
+    usage: Mapping[str, object],
+    ms: float,
+    *,
+    err: str = "",
+    extra: Mapping[str, object] | None = None,
+) -> None:
+    """One JSON line per LLM call. Grep with `journalctl -o json | jq`."""
+
+    def _int(x: object) -> int:
+        if isinstance(x, int | float):
+            return int(x)
+        return 0
+
+    record: dict[str, object] = {
+        "kind": "llm_call",
+        "purpose": purpose,
+        "model": model,
+        "in_toks": _int(usage.get("prompt_tokens", 0)),
+        "out_toks": _int(usage.get("completion_tokens", 0)),
+        "ms": int(ms),
+    }
+    if err:
+        record["error"] = err
+    if extra:
+        record.update(extra)
+    log.info(json.dumps(record))
 
 
 def delta(line: str) -> str:

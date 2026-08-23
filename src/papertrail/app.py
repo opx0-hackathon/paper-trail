@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import os
+import sqlite3
 import time
 import uuid
 from collections import deque
@@ -534,7 +535,15 @@ async def export_file(request: Request) -> Response:
 
 @app.get("/healthz")
 async def healthz(request: Request) -> JSONResponse:
-    return JSONResponse({"ok": True, "model": bool(request.app.state.client)})
+    store: Store = request.app.state.store
+    try:
+        with store._connect() as con:
+            con.execute("SELECT 1").fetchone()
+        db_ok = True
+    except sqlite3.Error:
+        db_ok = False
+    payload = {"ok": db_ok, "model": bool(request.app.state.client), "db": db_ok}
+    return JSONResponse(payload, status_code=200 if db_ok else 503)
 
 
 @app.post("/api/remember")
@@ -649,6 +658,11 @@ async def restore(request: Request) -> JSONResponse:
 def main() -> None:
     """Serve on loopback; the reverse proxy in front terminates TLS."""
     import uvicorn
+
+    # LLM calls emit one JSON line per call on `papertrail.llm`; make sure it
+    # reaches the same stream uvicorn writes to.
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    logging.getLogger("papertrail").setLevel(logging.INFO)
 
     uvicorn.run(
         app,

@@ -18,6 +18,8 @@ ENV UV_LINK_MODE=copy \
     PAPERTRAIL_PORT=8790 \
     PAPERTRAIL_WEB_DIST=/app/web/dist \
     PAPERTRAIL_DB=/data/papertrail.db \
+    PAPERTRAIL_MIGRATIONS=/app/migrations \
+    PAPERTRAIL_PROMPTS=/app/prompts \
     PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
@@ -30,6 +32,8 @@ RUN uv sync --frozen --no-dev --no-install-project
 # it and hatchling validates it exists during the project install.
 COPY README.md ./
 COPY src/ ./src/
+COPY migrations/ ./migrations/
+COPY prompts/ ./prompts/
 COPY --from=web /web/dist ./web/dist
 RUN uv sync --frozen --no-dev
 
