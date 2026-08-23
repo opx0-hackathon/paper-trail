@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 460" width="960" height="460"
+     font-family="ui-sans-serif, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif"
+     role="img" aria-labelledby="title desc">
+  <title id="title">How one Paper Trail turn runs</title>
+  <desc id="desc">A question passes through a scope call that sees only memory labels, then
+    policy, then a store read that writes its receipts in the same transaction, then
+    projection, then the answer call. The stamps shown to the person come from the receipt
+    rows, not from the model's output.</desc>
+
+  <style>
+    .bg    { fill: #F5F3EC; }
+    .rule  { stroke: #EAE7DD; }
+    .card  { fill: #FFFFFF; stroke: #E2DFD6; }
+    .ink   { fill: #111318; }
+    .muted { fill: #676C76; }
+    .cob   { fill: #234C92; }
+    .cobs  { fill: #EAF0FB; stroke: #234C92; }
+    .cor   { fill: #F15A3A; }
+    .cors  { fill: #FDEBE5; stroke: #F15A3A; }
+    .grn   { fill: #1E7A55; }
+    .grns  { fill: #E4F3EC; stroke: #1E7A55; }
+    .arrow { stroke: #676C76; fill: none; }
+    .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    @media (prefers-color-scheme: dark) {
+      .bg    { fill: #0F1116; }
+      .rule  { stroke: #14171E; }
+      .card  { fill: #171B22; stroke: #262B35; }
+      .ink   { fill: #ECEEF2; }
+      .muted { fill: #99A0AC; }
+      .cob   { fill: #9CB8F0; }
+      .cobs  { fill: #1B2434; stroke: #9CB8F0; }
+      .cor   { fill: #FF7A5C; }
+      .cors  { fill: #34211C; stroke: #FF7A5C; }
+      .grn   { fill: #58C79A; }
+      .grns  { fill: #16271F; stroke: #58C79A; }
+      .arrow { stroke: #99A0AC; }
+    }
+  </style>
+
+  <rect class="bg" width="960" height="460"/>
+  <g class="rule" stroke-width="1">
+    <path d="M0 32.5H960M0 64.5H960M0 96.5H960M0 128.5H960M0 160.5H960M0 192.5H960M0 224.5H960
+             M0 256.5H960M0 288.5H960M0 320.5H960M0 352.5H960M0 384.5H960M0 416.5H960M0 448.5H960"/>
+  </g>
+
+  <defs>
+    <marker id="head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
+            orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#676C76"/>
+    </marker>
+  </defs>
+
+  <text class="ink" x="40" y="46" font-size="19" font-weight="700">One turn, end to end</text>
+  <text class="muted" x="40" y="68" font-size="13">
+    The model is asked what it needs before it is given anything.
+  </text>
+
+  <!-- question -->
+  <rect class="card" x="40" y="96" width="150" height="58" rx="12" stroke-width="1.2"/>
+  <text class="ink" x="115" y="122" font-size="13.5" font-weight="650" text-anchor="middle">Question</text>
+  <text class="muted mono" x="115" y="140" font-size="10.5" text-anchor="middle">"what should I cook?"</text>
+
+  <path class="arrow" d="M196 125 H244" stroke-width="1.4" marker-end="url(#head)"/>
+
+  <!-- scope call -->
+  <rect class="cobs" x="250" y="88" width="200" height="74" rx="12" stroke-width="1.4"/>
+  <text class="cob" x="350" y="112" font-size="13.5" font-weight="700" text-anchor="middle">1 · scope call</text>
+  <text class="cob mono" x="350" y="130" font-size="10.5" text-anchor="middle">labels_for_scope()</text>
+  <text class="cob" x="350" y="148" font-size="11" text-anchor="middle" opacity=".9">sees what each memory is ABOUT</text>
+
+  <rect class="cors" x="470" y="96" width="200" height="58" rx="12" stroke-width="1.4"/>
+  <text class="cor" x="570" y="120" font-size="12" font-weight="700" text-anchor="middle">never sees a value</text>
+  <text class="cor mono" x="570" y="138" font-size="10" text-anchor="middle">"a diagnosed condition"</text>
+
+  <path class="arrow" d="M350 168 V196" stroke-width="1.4" marker-end="url(#head)"/>
+
+  <!-- policy -->
+  <rect class="card" x="250" y="200" width="200" height="80" rx="12" stroke-width="1.2"/>
+  <text class="ink" x="350" y="224" font-size="13.5" font-weight="700" text-anchor="middle">2 · policy</text>
+  <text class="muted mono" x="350" y="242" font-size="10.5" text-anchor="middle">validate_request()</text>
+  <text class="muted" x="350" y="260" font-size="11" text-anchor="middle">unknown · revoked · special</text>
+  <text class="muted" x="350" y="274" font-size="11" text-anchor="middle">category riding along → refused</text>
+
+  <path class="arrow" d="M456 240 H520" stroke-width="1.4" marker-end="url(#head)"/>
+
+  <!-- store -->
+  <rect class="grns" x="526" y="192" width="212" height="96" rx="12" stroke-width="1.4"/>
+  <text class="grn" x="632" y="216" font-size="13.5" font-weight="700" text-anchor="middle">3 · store.read()</text>
+  <text class="grn mono" x="632" y="234" font-size="10.5" text-anchor="middle">memories + receipts</text>
+  <text class="grn" x="632" y="254" font-size="11.5" text-anchor="middle" font-weight="650">one transaction</text>
+  <text class="grn" x="632" y="272" font-size="11" text-anchor="middle" opacity=".9">both, or neither</text>
+
+  <path class="arrow" d="M632 296 V330" stroke-width="1.4" marker-end="url(#head)"/>
+
+  <!-- project -->
+  <rect class="card" x="526" y="334" width="212" height="80" rx="12" stroke-width="1.2"/>
+  <text class="ink" x="632" y="358" font-size="13.5" font-weight="700" text-anchor="middle">4 · project()</text>
+  <text class="muted" x="632" y="376" font-size="11" text-anchor="middle">the only route a value takes</text>
+  <text class="grn mono" x="632" y="396" font-size="10.5" text-anchor="middle">budget.confirmed: true</text>
+  <text class="muted" x="632" y="410" font-size="10.5" text-anchor="middle">the number stays behind</text>
+
+  <path class="arrow" d="M520 374 H456" stroke-width="1.4" marker-end="url(#head)"/>
+
+  <!-- answer call -->
+  <rect class="cobs" x="250" y="334" width="200" height="80" rx="12" stroke-width="1.4"/>
+  <text class="cob" x="350" y="358" font-size="13.5" font-weight="700" text-anchor="middle">5 · answer call</text>
+  <text class="cob" x="350" y="378" font-size="11" text-anchor="middle" opacity=".9">receives the projected dict</text>
+  <text class="cob" x="350" y="394" font-size="11" text-anchor="middle" opacity=".9">and nothing else</text>
+
+  <path class="arrow" d="M244 374 H196" stroke-width="1.4" marker-end="url(#head)"/>
+
+  <!-- output -->
+  <rect class="card" x="40" y="326" width="150" height="96" rx="12" stroke-width="1.2"/>
+  <text class="ink" x="115" y="350" font-size="13.5" font-weight="650" text-anchor="middle">Answer</text>
+  <text class="muted" x="115" y="368" font-size="11" text-anchor="middle">+ the stamp row</text>
+  <rect class="cobs" x="56" y="378" width="52" height="17" rx="5" stroke-width="1"/>
+  <text class="cob mono" x="82" y="390" font-size="8.5" text-anchor="middle">diet.style</text>
+  <rect class="grns" x="112" y="378" width="62" height="17" rx="5" stroke-width="1"/>
+  <text class="grn mono" x="143" y="390" font-size="8.5" text-anchor="middle">proof only</text>
+  <rect class="cors" x="56" y="399" width="62" height="17" rx="5" stroke-width="1"/>
+  <text class="cor mono" x="87" y="411" font-size="8.5" text-anchor="middle">refused</text>
+
+  <!-- the claim -->
+  <path class="arrow" d="M115 326 V172" stroke-width="1.2" stroke-dasharray="4 4"/>
+  <text class="muted" x="128" y="230" font-size="11" font-weight="650">stamps come from</text>
+  <text class="muted" x="128" y="245" font-size="11" font-weight="650">the receipt rows,</text>
+  <text class="muted" x="128" y="260" font-size="11" font-weight="650">not the model's</text>
+  <text class="muted" x="128" y="275" font-size="11" font-weight="650">account of itself</text>
+
+  <text class="muted" x="768" y="112" font-size="11.5" font-weight="700">Why two calls?</text>
+  <text class="muted" x="768" y="132" font-size="11">One call given every</text>
+  <text class="muted" x="768" y="147" font-size="11">memory has every memory</text>
+  <text class="muted" x="768" y="162" font-size="11">in its context already —</text>
+  <text class="muted" x="768" y="177" font-size="11">and then no stamp under</text>
+  <text class="muted" x="768" y="192" font-size="11">the answer means anything.</text>
+
+  <text class="muted" x="768" y="240" font-size="11.5" font-weight="700">Revocation</text>
+  <text class="muted" x="768" y="260" font-size="11">A revoked memory leaves</text>
+  <text class="muted" x="768" y="275" font-size="11">the candidate list at step 1,</text>
+  <text class="muted" x="768" y="290" font-size="11">so it is never offered again</text>
+  <text class="muted" x="768" y="305" font-size="11">rather than filtered later.</text>
+</svg>
