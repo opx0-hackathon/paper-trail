@@ -494,8 +494,8 @@ export default function App() {
 
       <footer>
         <span>Paper Trail</span>
-        <a href="https://github.com/opx0/paper-trail">Source, MIT</a>
-        <a href="https://github.com/opx0/paper-trail/blob/main/docs/MCP.md">MCP</a>
+        <a href="https://github.com/opx0-hackathon/paper-trail">Source, MIT</a>
+        <a href="https://github.com/opx0-hackathon/paper-trail/blob/main/docs/MCP.md">MCP</a>
         <button className="ghost link" type="button" onClick={() => setPeek(true)}>
           How it works
         </button>

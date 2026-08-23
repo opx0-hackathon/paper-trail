@@ -22,6 +22,7 @@ from fastapi.responses import (
     PlainTextResponse,
     StreamingResponse,
 )
+from fastapi.staticfiles import StaticFiles
 
 from papertrail import export, extract, llm, mcp, policy, turn
 from papertrail.models import Memory, MemorySource, PaperTrailError, ReceiptAction, Stamp
@@ -29,7 +30,16 @@ from papertrail.seed import HOLDER, STARTERS
 from papertrail.store import Store, database_path
 
 COOKIE = "pt_sid"
-TEMPLATE = Path(__file__).parent / "templates" / "index.html"
+# The built React app: env var wins; else repo-relative web/dist; else the
+# vanilla-JS fallback template that ships with the package.
+_ENV_DIST = os.environ.get("PAPERTRAIL_WEB_DIST")
+_REPO_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
+WEB_DIST = Path(_ENV_DIST) if _ENV_DIST else _REPO_DIST
+TEMPLATE = (
+    WEB_DIST / "index.html"
+    if (WEB_DIST / "index.html").is_file()
+    else Path(__file__).parent / "templates" / "index.html"
+)
 
 ASKS_PER_SESSION = 14
 ASKS_PER_MINUTE = 30
@@ -73,6 +83,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Paper Trail", lifespan=lifespan)
+
+if (WEB_DIST / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=WEB_DIST / "assets"), name="assets")
 
 
 async def _body(request: Request) -> dict[str, Any]:

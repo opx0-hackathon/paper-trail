@@ -105,7 +105,7 @@ export function McpPanel({ token, onConnect }: Props) {
             </button>
             <a
               className="ghost"
-              href="https://github.com/opx0/paper-trail/blob/main/docs/MCP.md"
+              href="https://github.com/opx0-hackathon/paper-trail/blob/main/docs/MCP.md"
               target="_blank"
               rel="noreferrer"
             >

@@ -1,0 +1,52 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  wait-for-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: wait for ci to pass on this commit
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          check-regexp: '^(api|web)$'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+          allowed-conclusions: success
+
+  deploy:
+    needs: wait-for-ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: ssh + run the deploy script on the vps
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script_stop: true
+          command_timeout: 15m
+          script: |
+            ~/paper-trail/deploy/deploy.sh
+
+      - name: smoke test
+        run: |
+          set -e
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" https://trail.opxz.dev/healthz)
+            state=$(curl -s -o /dev/null -w "%{http_code}" https://trail.opxz.dev/api/state)
+            echo "attempt $i: /healthz=$code /api/state=$state"
+            [ "$code" = "200" ] && [ "$state" = "200" ] && exit 0
+            sleep 5
+          done
+          echo "deploy verified but endpoints not returning 200 — check the box"
+          exit 1

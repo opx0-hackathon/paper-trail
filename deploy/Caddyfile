@@ -1,0 +1,6 @@
+trail.opxz.dev {
+    encode zstd gzip
+    # Container binds 127.0.0.1:8790 on the host. Backend serves both the
+    # React bundle and the API — no static root, no file_server here.
+    reverse_proxy 127.0.0.1:8790
+}

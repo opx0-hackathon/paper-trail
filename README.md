@@ -2,7 +2,7 @@
 
 **A memory file that is actually yours.**
 
-[![CI](https://github.com/opx0/paper-trail/actions/workflows/ci.yml/badge.svg)](https://github.com/opx0/paper-trail/actions/workflows/ci.yml)
+[![CI](https://github.com/opx0-hackathon/paper-trail/actions/workflows/ci.yml/badge.svg)](https://github.com/opx0-hackathon/paper-trail/actions/workflows/ci.yml)
 
 Paste anything about yourself and you have a governed memory file in under a minute. Ask it
 anything and every answer is stamped with the exact memories the model was handed. Pull one
@@ -172,9 +172,10 @@ make web                        # prettier check, tsc, vitest, vite build
 60 Python tests and 19 TypeScript ones, written as the specification: one per property, named so
 a failure explains itself.
 
-Hosted as one systemd unit on loopback with a reverse proxy serving `web/dist` directly and
-passing `/api/*` and `/mcp/*` through. Sessions and everything they hold are purged after
-24 hours, because visitors paste personal text into this and there are no accounts.
+Hosted as one Docker container on loopback (`docker compose up -d`) with Caddy in front —
+the backend serves the built React app itself, so there is no static root to keep in sync.
+Sessions and everything they hold are purged after 24 hours, because visitors paste
+personal text into this and there are no accounts.
 
 ---
 
