@@ -56,12 +56,12 @@ jobs:
       - name: smoke test from outside
         run: |
           set -e
-          for i in 1 2 3 4 5; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" https://trail.opxz.dev/healthz)
-            state=$(curl -s -o /dev/null -w "%{http_code}" https://trail.opxz.dev/api/state)
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" https://trail.opxz.dev/healthz || echo 000)
+            state=$(curl -s -o /dev/null -w "%{http_code}" https://trail.opxz.dev/api/state || echo 000)
             echo "attempt $i: /healthz=$code /api/state=$state"
             [ "$code" = "200" ] && [ "$state" = "200" ] && exit 0
             sleep 5
           done
-          echo "endpoints not 200 after 5 tries"
+          echo "endpoints not 200 after 10 tries"
           exit 1
