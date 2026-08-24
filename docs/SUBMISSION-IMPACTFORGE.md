@@ -35,12 +35,10 @@ regret telling it — a diagnosis, a income figure, a thing you said in a bad we
 control is a switch that erases *everything* or nothing.
 
 This is not a niche developer concern. It is a consumer-protection gap the size of the entire
-consumer-AI market, and it lands hardest on the people with the most to lose from a leak: someone
-managing a health condition, a domestic-abuse survivor whose location must never surface, a
-teenager, anyone in a country where a belief or an orientation is dangerous to record. The
-memory field in 2026 — Mem0, Zep, Letta and the rest — is a race to make *agents remember
-better*. Nobody is building the other half: a memory that is answerable to the person it
-describes.
+consumer-AI market, and it lands hardest on the people for whom a recorded health fact, belief,
+or figure carries real cost. The memory field in 2026 — Mem0, Zep, Letta and the rest — is a
+race to make *agents remember better*. Nobody is building the other half: a memory that is
+answerable to the person it describes.
 
 ## The solution
 
@@ -65,15 +63,19 @@ And the governance follows you: mount the same file in Claude over MCP and an ex
 gets the exact same rules — ask, receipt, grant, revoke — because there is one policy engine,
 not one per surface.
 
-## Who this helps, concretely
+## Who this helps
+
+The guarantee is the same for everyone, and it matters most to the people with the most to lose
+from a leak:
 
 - **Someone with a chronic condition** can let an assistant help plan meals or workouts while
-  the diagnosis itself stays a protected category that is refused by default and logged when
-  used.
-- **A person rebuilding after an abusive relationship** can hand a caseworker a share link over
-  two specific facts that expires in an hour and dies on revoke — without exposing the file.
-- **Anyone** gets, for the first time, an answer to "why did it say that?" that is a receipt
-  rather than a reassurance.
+  the diagnosis itself stays a protected category — refused by default, and logged the moment it
+  is used.
+- **Anyone handing off a slice of their file** — to a professional, a service, a friend — gives
+  a link over a chosen subset that expires in an hour, counts every open, and dies on revoke,
+  without exposing the rest.
+- **Anyone at all** gets, for the first time, an answer to "why did it say that?" that is a
+  receipt rather than a reassurance.
 
 The demo makes this legible in sixty seconds to a non-technical person: ask what to cook, pull
 the "kitchen equipment" memory off, and watch the advice change to assume a pan the persona
@@ -86,7 +88,7 @@ doesn't own. The abstract promise — *you control what it knows* — becomes so
 Assistant memory is now a mainstream consumer feature and a one-sided one: the system decides
 what to keep about a person, that person can't see how it was used, and can't remove one thing
 without wiping all of it. The harm is not hypothetical — it concentrates on people for whom a
-recorded health condition, belief, location, or orientation is genuinely dangerous.
+recorded health fact, belief, or figure carries real cost.
 
 Paper Trail moves the control to the person the memory is about, and proves it rather than
 promising it. Every read leaves a receipt written in the same transaction as the read, so the
